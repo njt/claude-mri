@@ -3,7 +3,6 @@ package model
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,9 +39,6 @@ func (m Model) TreeHeight() int {
 	return m.Height - 4 // account for header, border, help
 }
 
-// tickMsg triggers periodic updates
-type tickMsg time.Time
-
 // fileEventMsg wraps a file event
 type fileEventMsg data.FileEvent
 
@@ -70,19 +66,12 @@ func NewModel() Model {
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		m.loadProjects,
-		tickCmd(),
 	}
 	if m.Watcher != nil {
 		m.Watcher.Start()
 		cmds = append(cmds, m.watchFiles)
 	}
 	return tea.Batch(cmds...)
-}
-
-func tickCmd() tea.Cmd {
-	return tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
 }
 
 func (m Model) loadProjects() tea.Msg {

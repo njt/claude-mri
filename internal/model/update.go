@@ -49,10 +49,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ensureCursorVisible()
 		return m, nil
 
-	case tickMsg:
-		// Refresh data periodically
-		return m, tea.Batch(m.loadProjects, tickCmd())
-
 	case fileEventMsg:
 		// Reload projects on file change
 		// In follow mode, this will auto-update the tree
