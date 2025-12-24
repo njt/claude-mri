@@ -13,6 +13,12 @@ type mainModel struct {
 	model.Model
 }
 
+func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	updatedModel, cmd := m.Model.Update(msg)
+	m.Model = updatedModel.(model.Model)
+	return m, cmd
+}
+
 func (m mainModel) View() string {
 	return ui.View(m.Model)
 }
