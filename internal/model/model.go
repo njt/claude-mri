@@ -16,6 +16,7 @@ type Model struct {
 	Projects  []*data.Project
 	Tree      []*TreeNode
 	FlatNodes []*TreeNode // flattened visible nodes
+	Watcher   *data.Watcher
 
 	// Navigation
 	Cursor   int
@@ -36,24 +37,40 @@ type Model struct {
 // tickMsg triggers periodic updates
 type tickMsg time.Time
 
+// fileEventMsg wraps a file event
+type fileEventMsg data.FileEvent
+
 // NewModel creates a new model
 func NewModel() Model {
 	home, _ := os.UserHomeDir()
 	basePath := filepath.Join(home, ".claude", "projects")
 
-	return Model{
+	m := Model{
 		BasePath:   basePath,
 		FollowMode: true,
 		TreeWidth:  35,
 	}
+
+	// Create watcher
+	w, err := data.NewWatcher(basePath)
+	if err == nil {
+		m.Watcher = w
+	}
+
+	return m
 }
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
+	cmds := []tea.Cmd{
 		m.loadProjects,
 		tickCmd(),
-	)
+	}
+	if m.Watcher != nil {
+		m.Watcher.Start()
+		cmds = append(cmds, m.watchFiles)
+	}
+	return tea.Batch(cmds...)
 }
 
 func tickCmd() tea.Cmd {
@@ -68,6 +85,19 @@ func (m Model) loadProjects() tea.Msg {
 		return errMsg{err}
 	}
 	return projectsLoadedMsg{projects}
+}
+
+// watchFiles returns file events from the watcher
+func (m Model) watchFiles() tea.Msg {
+	if m.Watcher == nil {
+		return nil
+	}
+	select {
+	case event := <-m.Watcher.Events:
+		return fileEventMsg(event)
+	case err := <-m.Watcher.Errors:
+		return errMsg{err}
+	}
 }
 
 type projectsLoadedMsg struct {

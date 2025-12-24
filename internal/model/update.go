@@ -32,6 +32,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Refresh data periodically
 		return m, tea.Batch(m.loadProjects, tickCmd())
 
+	case fileEventMsg:
+		// Reload projects on file change
+		// In follow mode, this will auto-update the tree
+		return m, tea.Batch(m.loadProjects, m.watchFiles)
+
 	case errMsg:
 		// Could display error, for now just ignore
 		return m, nil
