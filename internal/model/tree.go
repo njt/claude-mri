@@ -61,7 +61,10 @@ func buildProjectNode(p *data.Project) *TreeNode {
 }
 
 func buildSessionNode(s *data.Session) *TreeNode {
-	label := s.ID[:8] + "..."
+	label := s.ID
+	if len(s.ID) > 8 {
+		label = s.ID[:8] + "..."
+	}
 	if s.IsAgent {
 		label = "agent-" + s.AgentID
 	}
