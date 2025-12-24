@@ -79,7 +79,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Cursor++
 			m.Selected = m.FlatNodes[m.Cursor]
 			m.ensureCursorVisible()
-			m.updateDetailView()
+			m.loadSelectedSession()
 		}
 
 	case "k", "up":
@@ -87,23 +87,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Cursor--
 			m.Selected = m.FlatNodes[m.Cursor]
 			m.ensureCursorVisible()
-			m.updateDetailView()
+			m.loadSelectedSession()
 		}
 
 	case "enter", "l", "right":
 		if m.Selected != nil && len(m.Selected.Children) > 0 {
 			m.Selected.Expanded = !m.Selected.Expanded
-			// Load session messages if needed
-			if m.Selected.Type == NodeSession && m.Selected.Session != nil {
-				if len(m.Selected.Session.Messages) == 0 {
-					data.LoadSession(m.Selected.Session)
-					// Rebuild this node's children
-					m.Selected.Children = nil
-					for _, msg := range m.Selected.Session.Messages {
-						m.Selected.Children = append(m.Selected.Children, BuildMessageNode(msg))
-					}
-				}
-			}
+			m.loadSelectedSession()
+			m.rebuildSessionChildren()
 			m.flattenTree()
 			m.ensureCursorVisible()
 		}
@@ -120,6 +111,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// loadSelectedSession loads messages for the selected session if needed
+func (m *Model) loadSelectedSession() {
+	if m.Selected == nil {
+		return
+	}
+	if m.Selected.Type == NodeSession && m.Selected.Session != nil {
+		if len(m.Selected.Session.Messages) == 0 {
+			data.LoadSession(m.Selected.Session)
+		}
+	}
+}
+
+// rebuildSessionChildren rebuilds children nodes after loading messages
+func (m *Model) rebuildSessionChildren() {
+	if m.Selected == nil {
+		return
+	}
+	if m.Selected.Type == NodeSession && m.Selected.Session != nil {
+		if len(m.Selected.Children) == 0 && len(m.Selected.Session.Messages) > 0 {
+			for _, msg := range m.Selected.Session.Messages {
+				m.Selected.Children = append(m.Selected.Children, BuildMessageNode(msg))
+			}
+		}
+	}
 }
 
 // ensureCursorVisible adjusts TreeScroll so cursor is visible
@@ -210,8 +227,4 @@ func (m *Model) flattenNode(node *TreeNode, depth int) {
 			m.flattenNode(child, depth+1)
 		}
 	}
-}
-
-func (m *Model) updateDetailView() {
-	// Detail view content is rendered on-demand in View
 }
