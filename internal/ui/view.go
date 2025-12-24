@@ -51,7 +51,16 @@ func View(m model.Model) string {
 func renderTree(m model.Model) string {
 	var sb strings.Builder
 
-	for i, node := range m.FlatNodes {
+	visibleHeight := m.TreeHeight()
+	startIdx := m.TreeScroll
+	endIdx := startIdx + visibleHeight
+	if endIdx > len(m.FlatNodes) {
+		endIdx = len(m.FlatNodes)
+	}
+
+	for i := startIdx; i < endIdx; i++ {
+		node := m.FlatNodes[i]
+
 		// Indentation
 		indent := strings.Repeat("  ", node.Depth())
 

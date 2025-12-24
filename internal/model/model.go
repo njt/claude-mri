@@ -19,8 +19,9 @@ type Model struct {
 	Watcher   *data.Watcher
 
 	// Navigation
-	Cursor   int
-	Selected *TreeNode
+	Cursor     int
+	Selected   *TreeNode
+	TreeScroll int // scroll offset for tree pane
 
 	// UI state
 	FollowMode bool
@@ -32,6 +33,11 @@ type Model struct {
 
 	// Paths
 	BasePath string
+}
+
+// TreeHeight returns the visible height of the tree pane
+func (m Model) TreeHeight() int {
+	return m.Height - 4 // account for header, border, help
 }
 
 // tickMsg triggers periodic updates

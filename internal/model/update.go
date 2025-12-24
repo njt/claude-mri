@@ -46,6 +46,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if len(m.FlatNodes) > 0 {
 			m.Selected = m.FlatNodes[0]
 		}
+		m.ensureCursorVisible()
 		return m, nil
 
 	case tickMsg:
@@ -77,6 +78,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Cursor < len(m.FlatNodes)-1 {
 			m.Cursor++
 			m.Selected = m.FlatNodes[m.Cursor]
+			m.ensureCursorVisible()
 			m.updateDetailView()
 		}
 
@@ -84,6 +86,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Cursor > 0 {
 			m.Cursor--
 			m.Selected = m.FlatNodes[m.Cursor]
+			m.ensureCursorVisible()
 			m.updateDetailView()
 		}
 
@@ -102,12 +105,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.flattenTree()
+			m.ensureCursorVisible()
 		}
 
 	case "h", "left", "esc":
 		if m.Selected != nil && m.Selected.Expanded {
 			m.Selected.Expanded = false
 			m.flattenTree()
+			m.ensureCursorVisible()
 		}
 
 	case "f":
@@ -115,6 +120,34 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// ensureCursorVisible adjusts TreeScroll so cursor is visible
+func (m *Model) ensureCursorVisible() {
+	visibleHeight := m.TreeHeight()
+	if visibleHeight <= 0 {
+		visibleHeight = 20 // fallback before window size known
+	}
+
+	// Scroll down if cursor below visible area
+	if m.Cursor >= m.TreeScroll+visibleHeight {
+		m.TreeScroll = m.Cursor - visibleHeight + 1
+	}
+	// Scroll up if cursor above visible area
+	if m.Cursor < m.TreeScroll {
+		m.TreeScroll = m.Cursor
+	}
+	// Don't scroll past the end
+	maxScroll := len(m.FlatNodes) - visibleHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.TreeScroll > maxScroll {
+		m.TreeScroll = maxScroll
+	}
+	if m.TreeScroll < 0 {
+		m.TreeScroll = 0
+	}
 }
 
 // getExpandedIDs collects IDs of all expanded nodes
