@@ -73,12 +73,12 @@ func buildSessionNode(s *data.Session) *TreeNode {
 		Session:  s,
 	}
 	for _, m := range s.Messages {
-		node.Children = append(node.Children, buildMessageNode(m))
+		node.Children = append(node.Children, BuildMessageNode(m))
 	}
 	return node
 }
 
-func buildMessageNode(m *data.Message) *TreeNode {
+func BuildMessageNode(m *data.Message) *TreeNode {
 	icon := "👤"
 	if m.Type == "assistant" {
 		icon = "🤖"
