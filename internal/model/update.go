@@ -20,10 +20,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case projectsLoadedMsg:
+		// Preserve expanded state before rebuild
+		expanded := m.getExpandedIDs()
+		selectedID := ""
+		if m.Selected != nil {
+			selectedID = m.Selected.ID
+		}
+
 		m.Projects = msg.projects
 		m.Tree = BuildTree(msg.projects)
+
+		// Restore expanded state
+		m.restoreExpandedState(expanded)
 		m.flattenTree()
-		if len(m.FlatNodes) > 0 {
+
+		// Restore selection
+		if selectedID != "" {
+			for i, node := range m.FlatNodes {
+				if node.ID == selectedID {
+					m.Cursor = i
+					m.Selected = node
+					break
+				}
+			}
+		} else if len(m.FlatNodes) > 0 {
 			m.Selected = m.FlatNodes[0]
 		}
 		return m, nil
@@ -95,6 +115,40 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// getExpandedIDs collects IDs of all expanded nodes
+func (m *Model) getExpandedIDs() map[string]bool {
+	expanded := make(map[string]bool)
+	for _, node := range m.Tree {
+		m.collectExpanded(node, expanded)
+	}
+	return expanded
+}
+
+func (m *Model) collectExpanded(node *TreeNode, expanded map[string]bool) {
+	if node.Expanded {
+		expanded[node.ID] = true
+	}
+	for _, child := range node.Children {
+		m.collectExpanded(child, expanded)
+	}
+}
+
+// restoreExpandedState marks nodes as expanded if they were before
+func (m *Model) restoreExpandedState(expanded map[string]bool) {
+	for _, node := range m.Tree {
+		m.restoreExpanded(node, expanded)
+	}
+}
+
+func (m *Model) restoreExpanded(node *TreeNode, expanded map[string]bool) {
+	if expanded[node.ID] {
+		node.Expanded = true
+	}
+	for _, child := range node.Children {
+		m.restoreExpanded(child, expanded)
+	}
 }
 
 // flattenTree creates a flat list of visible nodes
