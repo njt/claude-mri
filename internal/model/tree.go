@@ -37,6 +37,17 @@ func (n *TreeNode) Depth() int {
 	return n.depth
 }
 
+// IsExpandable returns true if the node can be expanded
+// Sessions and messages can always be expanded (lazy-load children)
+func (n *TreeNode) IsExpandable() bool {
+	switch n.Type {
+	case NodeSession, NodeMessage:
+		return true // Can always expand, children loaded lazily
+	default:
+		return len(n.Children) > 0
+	}
+}
+
 // BuildTree creates the tree structure from projects
 func BuildTree(projects []*data.Project) []*TreeNode {
 	nodes := make([]*TreeNode, 0, len(projects))

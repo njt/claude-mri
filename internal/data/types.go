@@ -12,6 +12,17 @@ type Project struct {
 	Sessions []*Session
 }
 
+// MostRecentUpdate returns the most recent session update time for this project
+func (p *Project) MostRecentUpdate() time.Time {
+	var most time.Time
+	for _, s := range p.Sessions {
+		if s.UpdatedAt.After(most) {
+			most = s.UpdatedAt
+		}
+	}
+	return most
+}
+
 // Session represents a conversation session (uuid.jsonl file)
 type Session struct {
 	ID        string
@@ -32,8 +43,20 @@ type Message struct {
 	AgentID     *string    `json:"agentId"`
 	IsSidechain bool       `json:"isSidechain"`
 	Message     RawContent `json:"message"`
+
 	// Parsed content blocks
 	Blocks []ContentBlock `json:"-"`
+
+	// Parsed metadata (extracted from nested JSON)
+	Model         string `json:"-"` // e.g., "claude-opus-4-5-20251101"
+	StopReason    string `json:"-"` // e.g., "end_turn", "tool_use", "max_tokens"
+	ThinkingLevel string `json:"-"` // e.g., "high", "low", ""
+
+	// Token usage
+	InputTokens      int `json:"-"`
+	OutputTokens     int `json:"-"`
+	CacheReadTokens  int `json:"-"`
+	CacheWriteTokens int `json:"-"`
 }
 
 // RawContent holds the raw message content from JSON

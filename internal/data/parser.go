@@ -29,7 +29,52 @@ func ParseMessageLine(line []byte) (*Message, error) {
 	// Parse content blocks
 	msg.Blocks = parseContentBlocks(msg.Message.Content)
 
+	// Parse additional metadata from the raw JSON
+	parseMessageMetadata(line, &msg)
+
 	return &msg, nil
+}
+
+// parseMessageMetadata extracts model, usage, stop_reason, and thinking level
+func parseMessageMetadata(line []byte, msg *Message) {
+	// Parse the full structure to get nested fields
+	var raw struct {
+		ThinkingMetadata *struct {
+			Level string `json:"level"`
+		} `json:"thinkingMetadata"`
+		Message *struct {
+			Model      string `json:"model"`
+			StopReason string `json:"stop_reason"`
+			Usage      *struct {
+				InputTokens             int `json:"input_tokens"`
+				OutputTokens            int `json:"output_tokens"`
+				CacheReadInputTokens    int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+			} `json:"usage"`
+		} `json:"message"`
+	}
+
+	if err := json.Unmarshal(line, &raw); err != nil {
+		return
+	}
+
+	// Extract thinking level (from user messages)
+	if raw.ThinkingMetadata != nil {
+		msg.ThinkingLevel = raw.ThinkingMetadata.Level
+	}
+
+	// Extract model, stop_reason, and usage (from assistant messages)
+	if raw.Message != nil {
+		msg.Model = raw.Message.Model
+		msg.StopReason = raw.Message.StopReason
+
+		if raw.Message.Usage != nil {
+			msg.InputTokens = raw.Message.Usage.InputTokens
+			msg.OutputTokens = raw.Message.Usage.OutputTokens
+			msg.CacheReadTokens = raw.Message.Usage.CacheReadInputTokens
+			msg.CacheWriteTokens = raw.Message.Usage.CacheCreationInputTokens
+		}
+	}
 }
 
 // parseContentBlocks handles both string and array content

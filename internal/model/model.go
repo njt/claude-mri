@@ -9,6 +9,22 @@ import (
 	"github.com/natdempk/claude-mri/internal/data"
 )
 
+// Pane represents which pane has focus
+type Pane int
+
+const (
+	TreePane Pane = iota
+	DetailPane
+)
+
+// SortMode represents how the tree is sorted
+type SortMode int
+
+const (
+	SortAlphabetical SortMode = iota
+	SortRecent
+)
+
 // Model is the main Bubble Tea model
 type Model struct {
 	// Data
@@ -17,13 +33,21 @@ type Model struct {
 	FlatNodes []*TreeNode // flattened visible nodes
 	Watcher   *data.Watcher
 
-	// Navigation
+	// Navigation - Tree pane
 	Cursor     int
 	Selected   *TreeNode
 	TreeScroll int // scroll offset for tree pane
 
+	// Navigation - Detail pane
+	Focus              Pane            // which pane has focus
+	DetailScroll       int             // scroll offset (in lines) for detail view
+	DetailContentHeight int            // total height of detail content (set by view)
+	BlockExpanded      map[string]bool // which blocks are expanded (by message UUID)
+	DetailExpandAll    bool            // auto-expand new messages when true
+
 	// UI state
 	FollowMode bool
+	SortMode   SortMode
 	Ready      bool
 	Width      int
 	Height     int
@@ -48,9 +72,11 @@ func NewModel() Model {
 	basePath := filepath.Join(home, ".claude", "projects")
 
 	m := Model{
-		BasePath:   basePath,
-		FollowMode: true,
-		TreeWidth:  35,
+		BasePath:      basePath,
+		FollowMode:    true,
+		TreeWidth:     40,
+		Focus:         TreePane,
+		BlockExpanded: make(map[string]bool),
 	}
 
 	// Create watcher

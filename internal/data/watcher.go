@@ -4,6 +4,8 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -22,6 +24,12 @@ type Watcher struct {
 	Events   chan FileEvent
 	Errors   chan error
 	done     chan struct{}
+
+	// Debouncing
+	debounceDelay time.Duration
+	pending       map[string]FileEvent
+	pendingMu     sync.Mutex
+	debounceTimer *time.Timer
 }
 
 // NewWatcher creates a new file watcher
@@ -32,11 +40,13 @@ func NewWatcher(basePath string) (*Watcher, error) {
 	}
 
 	return &Watcher{
-		watcher:  w,
-		basePath: basePath,
-		Events:   make(chan FileEvent, 100),
-		Errors:   make(chan error, 10),
-		done:     make(chan struct{}),
+		watcher:       w,
+		basePath:      basePath,
+		Events:        make(chan FileEvent, 100),
+		Errors:        make(chan error, 10),
+		done:          make(chan struct{}),
+		debounceDelay: 500 * time.Millisecond,
+		pending:       make(map[string]FileEvent),
 	}, nil
 }
 
@@ -87,11 +97,20 @@ func (w *Watcher) run() {
 				project = parts[0]
 			}
 
-			w.Events <- FileEvent{
+			// Debounce: add to pending and reset timer
+			w.pendingMu.Lock()
+			w.pending[event.Name] = FileEvent{
 				Path:    event.Name,
 				Project: project,
 				IsNew:   event.Op&fsnotify.Create != 0,
 			}
+
+			// Reset or start debounce timer
+			if w.debounceTimer != nil {
+				w.debounceTimer.Stop()
+			}
+			w.debounceTimer = time.AfterFunc(w.debounceDelay, w.flushPending)
+			w.pendingMu.Unlock()
 
 		case err, ok := <-w.watcher.Errors:
 			if !ok {
@@ -102,6 +121,32 @@ func (w *Watcher) run() {
 		case <-w.done:
 			return
 		}
+	}
+}
+
+// flushPending sends all pending events as a single event
+func (w *Watcher) flushPending() {
+	w.pendingMu.Lock()
+	defer w.pendingMu.Unlock()
+
+	if len(w.pending) == 0 {
+		return
+	}
+
+	// Send just one event (the most recent one) to trigger a refresh
+	var lastEvent FileEvent
+	for _, evt := range w.pending {
+		lastEvent = evt
+	}
+
+	// Clear pending
+	w.pending = make(map[string]FileEvent)
+
+	// Send the event
+	select {
+	case w.Events <- lastEvent:
+	default:
+		// Channel full, skip
 	}
 }
 

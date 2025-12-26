@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/natdempk/claude-mri/internal/debug"
 )
 
 var (
@@ -18,6 +20,8 @@ var (
 
 // ScanProjects scans the Claude projects directory and returns all projects
 func ScanProjects(basePath string) ([]*Project, error) {
+	defer debug.Time("ScanProjects")()
+
 	entries, err := os.ReadDir(basePath)
 	if err != nil {
 		return nil, err
@@ -48,6 +52,7 @@ func ScanProjects(basePath string) ([]*Project, error) {
 		return projects[i].Name < projects[j].Name
 	})
 
+	debug.Log("ScanProjects found %d projects", len(projects))
 	return projects, nil
 }
 
@@ -115,6 +120,8 @@ func scanSessions(projPath string) ([]*Session, error) {
 
 // LoadSession loads all messages from a session file
 func LoadSession(session *Session) error {
+	defer debug.Time("LoadSession " + session.ID)()
+
 	file, err := os.Open(session.FilePath)
 	if err != nil {
 		return err
@@ -126,7 +133,9 @@ func LoadSession(session *Session) error {
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
+	lineCount := 0
 	for scanner.Scan() {
+		lineCount++
 		msg, err := ParseMessageLine(scanner.Bytes())
 		if err != nil {
 			continue // skip malformed lines
@@ -136,5 +145,6 @@ func LoadSession(session *Session) error {
 		}
 	}
 
+	debug.Log("LoadSession parsed %d lines, %d messages", lineCount, len(session.Messages))
 	return scanner.Err()
 }
